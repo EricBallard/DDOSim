@@ -2,7 +2,8 @@ import socket
 #import socks
 
 bytesToSend = str.encode("PING")
-serverAddressPort = (str("107.152.41.214"), int(25565))
+#serverAddressPort = (str("107.152.41.214"), int(25565))
+serverAddressPort = (str("127.0.0.1"), int(25565))
 bufferSize = 1024
 
 # Create a UDP socket at client side
@@ -15,9 +16,12 @@ UDPClientSocket.settimeout(10)
 #client.connect(("107.152.41.214", 25565))
 
 # Send to server using created UDP socket
-UDPClientSocket.sendto(bytesToSend, serverAddressPort)
-#client.send(bytesToSend)
+UDPClientSocket.connect(serverAddressPort)
+print('connected')
 
+UDPClientSocket.send(bytesToSend)
+#client.send(bytesToSend)
+print('sent data')
 
 msgFromServer = UDPClientSocket.recvfrom(bufferSize)
 msg = "Message from Server {}".format(msgFromServer[0])
