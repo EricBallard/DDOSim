@@ -61,7 +61,7 @@ class get(object):
 
         while self.shouldPoll:
             try:
-                # UDP - fast, sessionless, blindly accepts data
+                # UDP - fast, session-less
                 # TCP - handshake, linear, slower than udp
                 self.sock.settimeout(None)
 
@@ -92,8 +92,7 @@ class get(object):
                     print(
                         f"Failed to accept {'client' if self.isTCP else 'data'} due to: {e}",
                     )
-
-                self.close()
+                    self.close()
 
         print("Server is OFFLINE!")
 
@@ -113,7 +112,7 @@ class get(object):
 
         if self.isServer:
             self.shouldPoll = False
-            self.sock.shutdown(socket.SHUT_RDWR)
+            #self.sock.shutdown(socket.SHUT_RDWR)
 
         self.sock.close()
         print("Disconnected!")
