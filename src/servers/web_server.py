@@ -9,21 +9,21 @@ class MyServer(BaseHTTPRequestHandler):
         path = self.path
 
         # Validate request path, and set type
-        if path == "/resources/index.html":
+        if path == "/_resources/index.html":
             type = "text/html"
-        elif path == "/resources/script.js":
+        elif path == "/_resources/script.js":
             type = "text/javascript"
-        elif path == "/resources/style.css":
+        elif path == "/_resources/style.css":
             type = "text/css"
         elif path == "/favicon.ico":
-            path = "/resources/favicon.ico"
+            path = "/_resources/favicon.ico"
             type = "image/x-icon"
         else:
             # Wild-card/default
             if not path == "/":
                 print("UNRECONGIZED REQUEST: ", path)
                 
-            path = "/resources/index.html"
+            path = "/_resources/index.html"
             type = "text/html"
         
         # Set header with content type
