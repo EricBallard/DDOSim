@@ -1,0 +1,56 @@
+:root{
+    overflow: hidden;
+    margin: auto;
+  }
+  body {
+    background-color: #505050;
+  }
+  .title-box {
+    /* Position */
+    position: absolute;
+    z-index: 3;
+
+    left: -525px;
+    top: 5vh;
+
+    /* Display */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    background-color: darkgoldenrod;
+
+    width: 500px;
+    height: 150px;
+    font-size: 2rem;
+    font-weight: bold;
+
+    border-radius: 0 50px 50px 0;
+    box-shadow: 2px 2px 5px 5px #252525;
+  }
+  .subtxt {
+    font-size: 1.2rem;
+    font-weight: normal;
+  }
+  .content {
+    position: absolute;
+    z-index: 0;
+
+    left: 25%;
+    top: 40%;
+
+    width: 50%;
+    text-align: center;
+    font-size: 1.2rem;
+  }
+  a{
+    color: greenyellow;
+  }
+  footer {
+    position: absolute;
+    z-index: 2;
+
+    top: 95%;
+    left: 2.5%;
+  }
