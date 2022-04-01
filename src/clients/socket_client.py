@@ -1,10 +1,8 @@
-# Add parent folder to path
 import os, sys
 
-sys.path.insert(1, os.path.join(sys.path[0], ".."))
-
-# Import from parent directory
-import util, sockets
+# Add sibling folder to path, import util modules
+sys.path.append(os.path.abspath('./utils'))
+import cli, sockets
 
 # Config
 data = str.encode("PING")
@@ -12,7 +10,7 @@ data = str.encode("PING")
 # Main()
 if __name__ == "__main__":
     # Parse CLI args
-    args = util.get_args()
+    args = cli.get_args()
 
     # Init socket
     client = sockets.get(args.ip, args.port, args.tcp)

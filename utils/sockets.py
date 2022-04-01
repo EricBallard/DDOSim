@@ -6,10 +6,8 @@ import sys
 bufferSize = 1024
 response = str.encode("PONG")
 
-# Util
-hostAddr = None
 
-# TODO - TCP server does not interrupt properly 
+hostAddr = None
 
 def get_host_addr():
     global hostAddr
@@ -19,7 +17,7 @@ def get_host_addr():
 
     return hostAddr
 
-# Modular class used to init TCP/UDP Server & Client
+# Modular class for TCP/UDP Server & Client
 class get(object):
     def __init__(self, host, port, useTCP):
         # Create server/client socket
@@ -163,7 +161,7 @@ class get(object):
             print(f"{address} | @RECEIVED ~ {size} bytes | {data}")
         except Exception as e:
             # Ignore error on server shutdown
-            if self.shouldPoll:
+            if (self.shouldPoll if self.isServer else True):
                 print(f"@FAILED to get data: {e}")
             address = None
 

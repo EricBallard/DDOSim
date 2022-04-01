@@ -2,11 +2,9 @@ import threading
 import keyboard
 import os, sys
 
-# Add parent folder to path
-sys.path.insert(1, os.path.join(sys.path[0], ".."))
-
-# Import from parent directory
-import util, sockets
+# Add sibling folder to path, import util modules
+sys.path.append(os.path.abspath('./utils'))
+import cli, sockets
 
 # Stop/cleanup
 def stop():
@@ -32,7 +30,7 @@ def listenForKey():
 # Main()
 if __name__ == "__main__":
     # Parse CLI args
-    args = util.get_args()
+    args = cli.get_args()
 
     # Init socket
     server = sockets.get(args.ip, args.port, args.tcp)
