@@ -1,7 +1,7 @@
 import os, sys
 
 # Add sibling folder to path, import util modules
-sys.path.append(os.path.abspath('./utils'))
+sys.path.append(os.path.abspath('./src/utils'))
 import cli, sockets
 
 # Config
