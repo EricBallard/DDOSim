@@ -35,6 +35,7 @@ class get(object):
         # Configure
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.hostAddressPort = (str(host), int(port))
+        # Client by default, bind() will set to Server
         self.isServer = False
 
     #### Socket Management ####
@@ -101,7 +102,7 @@ class get(object):
             self.sock.connect(self.hostAddressPort)
             return True
         except Exception as e:
-            print("FAILED to start sever: ", e)
+            print("FAILED to connect: ", e)
             return False
 
     def close(self):
@@ -132,17 +133,20 @@ class get(object):
             size = sys.getsizeof(data)
 
             # Truncate data for logging
+            data = str(data)
             data = (data[:75] + "..") if len(data) > 75 else data
             print(f"{address} | @SENT ~ {size} bytes | {data}")
             return True
         except Exception as e:
             # Ignore error on server shutdown
-            if self.shouldPoll:
+            if not self.isServer or self.shouldPoll:
                 print(f"{address} | @FAILED to send data: {type(e)}")
 
         return False
 
     def get_data(self, conn):
+        print("getting data...")
+        
         try:
             # Receieve data from server/client
             data = conn.recv(bufferSize) if self.isTCP else conn.recvfrom(bufferSize)
@@ -161,8 +165,8 @@ class get(object):
             print(f"{address} | @RECEIVED ~ {size} bytes | {data}")
         except Exception as e:
             # Ignore error on server shutdown
-            if (self.shouldPoll if self.isServer else True):
-                print(f"@FAILED to get data: {e}")
+            #if not self.isServer or self.shouldPoll:
+            print(f"@FAILED to get data: {e}")
             address = None
 
         # Returns sender address
@@ -184,7 +188,6 @@ class get(object):
 
                     # Done
                     keepAlive = False
-                    client.close()
                 else:  # Bad Data
                     raise Exception("RECEIVED NO/BAD DATA")
             except Exception as e:
@@ -192,6 +195,6 @@ class get(object):
                     # Disconnect
                     print(f"{address} | @DROPING ~ {e}")
                     keepAlive = False
-                    client.close()
-
+                   
+        client.close()
         print(f"{address} | @CLOSED")
