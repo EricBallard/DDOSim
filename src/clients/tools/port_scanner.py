@@ -1,54 +1,53 @@
 from scapy.all import *
+import socket
 
-SYNACK_FLAG = 0x12
-RSTACK_FLAG = 0x14
+# Silence scapy debug
+conf.verb = 0
 
-# Config
-ports = range(int(1), int(100))
+ip = "107.152.41.214"
+port = int(22)
 
 
-def is_online(ip):
+def is_online():
+    reply = sr1(IP(dst=ip, ttl=20) / ICMP(), timeout=2)
+    return False if reply is None else True
+
+
+def is_port_open(port):
+    # Send SYN packet
+    response = sr1(IP(dst=ip) / TCP(dport=port, flags="S"), timeout=2, verbose=0)
+
     try:
-        print("Pining... ", ip)
-        ping = sr1(IP(dst=ip) / ICMP())
-        print(ping)
-        return True
-    except Exception:
-        return False
-
-
-def scan(target, port):
-    src_port = RandShort()
-    
-    print("Checking Port: ", port)
-    response = sr(IP(dst=target) / TCP(sport=src_port, dport=port, flags="S"))
-    # Extract flags of recived packet
-    pktflags = response.getlayer(TCP).flags
-
-    if pktflags == SYNACK_FLAG:
-        RSTpkt = IP(dst=target) / TCP(sport=src_port, dport=port, flags="R")
-        send(RSTpkt)
-
-        print("Port is OPEN: ", port)
-        return True
-    else:
-        return False
+        # Check for response, if available check for ACK
+        if response.getlayer(TCP).flags == "SA":
+            return True
+    except AttributeError:
+        pass
+    return False
 
 
 # Main()
 if __name__ == "__main__":
-    target = "107.152.41.214"
-    
-    # Start
-   # if not is_online(target):
-   #     print("@FAILED: Unable to to reach server, is it online?")
-   # else:
-    print("Scanning ports...")
+    print("Checking if host is online...")
 
-    try:
-        for port in ports:
-            status = scan(target, port)
-            if status == True:
-                print("Port " + str(port) + ": Open")
-    except KeyboardInterrupt:
-        print("\n[*] User Requested Shutdown...")
+    # Check if host is online
+    for i in range(5):
+        online = is_online()
+
+        if online:
+            break
+
+    if online:
+        print("Scanning ports...")
+        open_ports = []
+
+        # Scan ports, cache index if open
+        for i in range(1, 100):
+            if is_port_open(i):
+                open_ports.append(i)
+
+        # Print open ports with related service
+        for port in open_ports:
+            print ("OPEN: %s => %s" %(port, socket.getservbyport(port, "TCP"))) 
+    else:
+        print(f"Unable to ping host, is it online? ({ip})")
