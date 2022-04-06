@@ -84,10 +84,12 @@ if __name__ == "__main__":
 
     if online:
         # Scan ports, cache index if open
-        print(f"@SCANNING ports... ({start_port} - {end_port}) | THREADS: {args.threads}")
+        print(
+            f"@SCANNING ports... ({start_port} - {end_port}) | THREADS: {args.threads}"
+        )
 
         try:
-            # Multi-Threaded scanner (Default 1)
+            # Multi-Threaded scanner (Default 8)
             spawned_threads = []
             threads = int(args.threads)
 
