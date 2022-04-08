@@ -17,7 +17,7 @@ import sys
 
 # Add sibling folder to path, import util modules
 sys.path.append(os.path.abspath("./src/utils"))
-import cli
+import cli, sockets
 
 
 def is_online(host):
@@ -25,7 +25,26 @@ def is_online(host):
     return False if reply is None else True
 
 
-def is_port_open(host, port):
+get_request = b"GET / HTTP/1.1\r\n\r\n"
+
+
+def is_open(host, port):
+    client = sockets.get(host, port, True, True)
+    client.silent = True
+
+    if client.connect(1):
+        # If HTTP server, send GET request to extract info
+        # Otherwise many services auto send info after handshake
+        if port == 80 or port == 443:
+            client.send_data(client.sock, get_request, client.hostAddressPort)
+
+        address, data = client.get_data(client.sock)
+        return data
+
+    return None
+
+
+def is_open_stealth(host, port):
     # Send SYN packet
     response = sr1(IP(dst=host) / TCP(dport=port, flags="S"), timeout=2, verbose=0)
 
@@ -44,19 +63,25 @@ def is_port_open(host, port):
 
 
 def scan_range(host, fro, to):
-    global scanned_ports
+    global results
 
     # NOTE: range(1-100) Will start @ index 1 and end @ index 99 - ??
     for i in range(fro, to):
-        scanned_ports += 1
+        results["scanned_ports"] += 1
+        scan_result = is_open(host, i)
 
-        if is_port_open(host, i):
-            # Print open ports with related service
-            print("OPEN: %s => %s" % (i, getservbyport(i, "TCP")))
+        if scan_result is not None:
+            # Port is open - cache details
+            service = str.upper(getservbyport(i, "TCP")).rjust(4)
+
+            results["open_ports"]["port"].append(i)
+            results["open_ports"]["service"].append(service)
+            results["open_ports"]["version"].append([scan_result])
 
 
 # Main()
-scanned_ports = 0
+results = {"scanned_ports": 0, "open_ports": {"port": [], "service": [], "version": []}}
+toolbar_width = 40
 
 if __name__ == "__main__":
     # Parse CLI args
@@ -119,6 +144,20 @@ if __name__ == "__main__":
                 spawned_threads.append(child_thread)
                 child_thread.start()
 
+            sys.stdout.write("[%s]" % (" " * toolbar_width))
+            sys.stdout.flush()
+            sys.stdout.write(
+                "\b" * (toolbar_width + 1)
+            )  # return to start of line, after '['
+
+            for i in range(toolbar_width):
+                time.sleep(0.1)  # do real work here
+                # update the bar
+                sys.stdout.write("-")
+                sys.stdout.flush()
+
+            sys.stdout.write("]\n")
+
             # Wait for child threads to finish
             for thread in spawned_threads:
                 thread.join()
@@ -129,6 +168,25 @@ if __name__ == "__main__":
 
         # Print stats
         run_time = time.time() - start_time
-        print(f"Scanned {scanned_ports} ports in {round(run_time, 2)}s | {args.ip}")
+        print(
+            f"Scanned {results['scanned_ports']} ports in {round(run_time, 2)}s | {args.ip}"
+        )
+
+        # Print results (pretty)
+        keys = list(results["open_ports"].keys())
+        size = len(keys)
+
+        if size > 0:
+            for i in range(size):
+                print(
+                    str(keys[i]).capitalize().rjust(7),
+                    ": ",
+                    results["open_ports"]["port"][i],
+                    " | ",
+                    results["open_ports"]["service"][i],
+                    " | ",
+                    results["open_ports"]["version"][i],
+                )
+
     else:
         print(f"@FAILED to ping host, is it online? | {args.ip}")

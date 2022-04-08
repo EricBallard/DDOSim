@@ -33,7 +33,7 @@ if __name__ == "__main__":
     args = cli.get_args()
 
     # Init socket
-    server = sockets.get(args.ip, args.port, args.tcp)
+    server = sockets.get(args.ip, args.port, args.tcp, False)
     server.bind()
 
     print("SERVER=", server.sock)

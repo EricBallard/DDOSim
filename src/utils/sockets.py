@@ -6,8 +6,8 @@ import sys
 bufferSize = 1024
 response = str.encode("PONG")
 
-
 hostAddr = None
+
 
 def get_host_addr():
     global hostAddr
@@ -17,15 +17,18 @@ def get_host_addr():
 
     return hostAddr
 
+
 # Modular class for TCP/UDP Server & Client
 class get(object):
-    def __init__(self, host, port, useTCP):
+    def __init__(self, host, port, useTCP, silent):
         # Create server/client socket
         # https://docs.python.org/3/library/socket.html
+        self.silent = silent
         self.isTCP = useTCP
 
-        print(f"Starting {'TCP' if self.isTCP else 'UDP'} socket...")
-        print(f"Host: {host} Port: {port}")
+        if not silent:
+            print(f"Starting {'TCP' if self.isTCP else 'UDP'} socket...")
+            print(f"Host: {host} Port: {port}")
 
         if useTCP:
             self.sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
@@ -72,10 +75,10 @@ class get(object):
                     threading.Thread(
                         target=self.handle_client, args=(client, address)
                     ).start()
-                    
+
                 else:
                     # UDP -  Read incoming data
-                    address = self.get_data(self.sock)
+                    address, data = self.get_data(self.sock)
 
                     # Validate
                     if not address:
@@ -95,14 +98,15 @@ class get(object):
 
         print("Server is OFFLINE!")
 
-    def connect(self):
+    def connect(self, timeout):
         try:
-            # Attempt to connect to host - 5s timeout
-            self.sock.settimeout(5)
+            # Attempt to connect to host
+            self.sock.settimeout(timeout)
             self.sock.connect(self.hostAddressPort)
             return True
         except Exception as e:
-            print("FAILED to connect: ", e)
+            if not self.silent:
+                print("FAILED to connect: ", e)
             return False
 
     def close(self):
@@ -111,7 +115,7 @@ class get(object):
 
         if self.isServer:
             self.shouldPoll = False
-            #self.sock.shutdown(socket.SHUT_RDWR)
+            # self.sock.shutdown(socket.SHUT_RDWR)
 
         self.sock.close()
         print("Disconnected!")
@@ -135,18 +139,18 @@ class get(object):
             # Truncate data for logging
             data = str(data)
             data = (data[:75] + "..") if len(data) > 75 else data
-            print(f"{address} | @SENT ~ {size} bytes | {data}")
+
+            if not self.silent:
+                print(f"{address} | @SENT ~ {size} bytes | {data}")
             return True
         except Exception as e:
             # Ignore error on server shutdown
-            if not self.isServer or self.shouldPoll:
+            if not self.silent and (not self.isServer or self.shouldPoll):
                 print(f"{address} | @FAILED to send data: {type(e)}")
 
         return False
 
     def get_data(self, conn):
-        print("getting data...")
-        
         try:
             # Receieve data from server/client
             data = conn.recv(bufferSize) if self.isTCP else conn.recvfrom(bufferSize)
@@ -161,16 +165,19 @@ class get(object):
             size = sys.getsizeof(data)
 
             # Truncate data for logging
-            data = (data[:75] + "..") if len(data) > 75 else data
-            print(f"{address} | @RECEIVED ~ {size} bytes | {data}")
+            # data = (data[:75] + "..") if len(data) > 75 else data
+            if not self.silent:
+                print(f"{address} | @RECEIVED ~ {size} bytes | {data}")
         except Exception as e:
             # Ignore error on server shutdown
-            #if not self.isServer or self.shouldPoll:
-            print(f"@FAILED to get data: {e}")
+            # if not self.isServer or self.shouldPoll:
+            if not self.silent:
+                print(f"@FAILED to get data: {e}")
             address = None
+            data = None
 
         # Returns sender address
-        return address
+        return (address, data)
 
     def handle_client(self, client, address):
         print(f"{address} | @CONNECTED")
@@ -180,7 +187,7 @@ class get(object):
             try:
                 # Wait up to 10s for data
                 client.settimeout(10)
-                data = self.get_data(client)
+                addr, data = self.get_data(client)
 
                 if data:
                     # Respond
@@ -195,6 +202,6 @@ class get(object):
                     # Disconnect
                     print(f"{address} | @DROPING ~ {e}")
                     keepAlive = False
-                   
+
         client.close()
         print(f"{address} | @CLOSED")

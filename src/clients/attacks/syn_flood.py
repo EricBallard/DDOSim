@@ -10,7 +10,7 @@ import cli, sockets
 
 def test(host, hostport, srcport):
     # Init socket
-    client = sockets.get(host, hostport, True)
+    client = sockets.get(host, hostport, True, True)
     client.sock.bind(("0.0.0.0", srcport))
 
     if client.connect():

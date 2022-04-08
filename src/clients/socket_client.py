@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Send to server
     # TCP requires handshake | UDP is 'connection-less'
     if not (
-        {client.connect() if args.tcp else True}
+        {client.connect(5) if args.tcp else True}
         and client.send_data(client.sock, data, client.hostAddressPort)
     ):
         print("FAILED to ping server, is it online?")
