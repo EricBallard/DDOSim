@@ -13,7 +13,7 @@ if __name__ == "__main__":
     args = cli.get_args()
 
     # Init socket
-    client = sockets.get(args.ip, args.port, args.tcp)
+    client = sockets.get(args.ip, args.port, args.tcp, False)
     print("CLIENT=", client.sock)
 
     # Send to server

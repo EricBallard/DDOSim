@@ -165,9 +165,9 @@ class get(object):
             size = sys.getsizeof(data)
 
             # Truncate data for logging
-            # data = (data[:75] + "..") if len(data) > 75 else data
+            log = (data[:75] + "..") if len(data) > 75 else data
             if not self.silent:
-                print(f"{address} | @RECEIVED ~ {size} bytes | {data}")
+                print(f"{address} | @RECEIVED ~ {size} bytes | {log}")
         except Exception as e:
             # Ignore error on server shutdown
             # if not self.isServer or self.shouldPoll:

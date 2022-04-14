@@ -25,6 +25,11 @@ def is_online(host):
     return False if reply is None else True
 
 
+def parse_version(info):
+    info = str(info, "utf-8")
+    return info
+
+
 get_request = b"GET / HTTP/1.1\r\n\r\n"
 
 
@@ -46,20 +51,18 @@ def is_open(host, port):
 
 def is_open_stealth(host, port):
     # Send SYN packet
-    response = sr1(IP(dst=host) / TCP(dport=port, flags="S"), timeout=2, verbose=0)
+    response = sr1(
+        IP(dst=host) / TCP(dport=port, flags="S"), timeout=2, seq=100, verbose=0
+    )
 
     try:
         # Check for response, if available check for SYN-ACK flag
         # Any other response the port is closed
         if response.getlayer(TCP).flags == "SA":
-
-            # Acknowledge server response, terminate connection
-            # (Releases port, otherwise this would be a SYN flood attack)
-            sr1(IP(dst=host) / TCP(dport=port, flags="R"), timeout=2, verbose=0)
-            return True
+            return response
     except AttributeError:
         pass
-    return False
+    return None
 
 
 def scan_range(host, fro, to):
@@ -68,19 +71,59 @@ def scan_range(host, fro, to):
     # NOTE: range(1-100) Will start @ index 1 and end @ index 99 - ??
     for i in range(fro, to):
         results["scanned_ports"] += 1
-        scan_result = is_open(host, i)
+        # scan_result = is_open(host, i)
+        scan_result = is_open_stealth(host, i)
 
         if scan_result is not None:
-            # Port is open - cache details
-            service = str.upper(getservbyport(i, "TCP")).rjust(4)
+            # Half-Open scan superiorly faster than full 3way handshake
+            # However, if port is open we'll need to complete the handshake
+            # to send/recieve data in attempt to parse the service version
+            # if scan_result is None:
+            #    print("STEASLTH PASSED BUT 3WAY FAILED: ", i)
+            #    pass
 
-            results["open_ports"]["port"].append(i)
-            results["open_ports"]["service"].append(service)
-            results["open_ports"]["version"].append([scan_result])
+            # Acknowledge server response, completing tcp handshake
+            conn_id = scan_result.seq + 1
+            conn = sr1(
+                IP(dst=host) / TCP(dport=port, flags="A"),
+                seq=conn_id,
+                ack=conn_id,
+                timeout=2,
+                verbose=0,
+            )
+
+            # Finialized hand shake.. send packet
+            reply = sr1(
+                IP(dst=host)
+                / TCP(dport=i, flags="PA", seq=conn.seq + 1, ack=conn_id)
+                / get_request,
+                timeout=2,
+            )
+            
+            print(reply)
+
+            # Acknowledge server response, terminate connection
+            # (Releases port, otherwise this would be a SYN flood attack)
+            sr1(
+                IP(dst=host) / TCP(dport=port, flags="F"),
+                seq=(reply.seq + 1),
+                ack=conn_id,
+                timeout=2,
+                verbose=0,
+            )
+
+            # Port is open - cache details
+           # results["open_ports"].append(
+            #    {
+             #       "port": i,
+             #       "service": str.upper(getservbyport(i, "TCP")).rjust(4),
+             #       "version": parse_version(scan_result),
+             #   }
+            #)
 
 
 # Main()
-results = {"scanned_ports": 0, "open_ports": {"port": [], "service": [], "version": []}}
+results = {"scanned_ports": 0, "open_ports": []}
 toolbar_width = 40
 
 if __name__ == "__main__":
@@ -102,7 +145,7 @@ if __name__ == "__main__":
 
     # Check if host is online
     for i in range(5):
-        online = is_online(args.ip)
+        online = True  # is_online(args.ip)
 
         if online:
             break
@@ -173,20 +216,12 @@ if __name__ == "__main__":
         )
 
         # Print results (pretty)
-        keys = list(results["open_ports"].keys())
+        keys = results["open_ports"]
         size = len(keys)
 
-        if size > 0:
-            for i in range(size):
-                print(
-                    str(keys[i]).capitalize().rjust(7),
-                    ": ",
-                    results["open_ports"]["port"][i],
-                    " | ",
-                    results["open_ports"]["service"][i],
-                    " | ",
-                    results["open_ports"]["version"][i],
-                )
-
+        #                str(keys[i]).capitalize().rjust(7),
+        for i in range(size):
+            result = keys[i]
+            print(result["port"], " | ", result["service"], " | ", result["version"])
     else:
         print(f"@FAILED to ping host, is it online? | {args.ip}")
