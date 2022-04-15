@@ -14,7 +14,9 @@ class session:
     def __init__(self, host, port):
         self.ip = IP(dst=host)
         self.port = port
-        self.sport = 1337
+        self.sport = 48923
+        self.seq = 0  # Bytes sent
+        self.ack = 0  # Bytes recieved
 
     # Returns Layer 4 (Transportation) Configured for TCP with parameters
     # https://packetlife.net/blog/2010/jun/7/understanding-tcp-sequence-acknowledgment-numbers/
@@ -32,12 +34,17 @@ class session:
     def connect(self):
         # Init connection with Synchronization request
         # TODO: Random starting seq
-        protocol = self.get_protocol("S", seq=1000)
+        protocol = self.get_protocol("S", seq=1000)  # SEQ = 0
         print("syn...")
 
         # NOTE: (SR = Send & Receive -> first answer )
         syn_req = sr1(self.ip / protocol, timeout=2, verbose=0)
-        self.ack = syn_req.seq + 1
+
+        if syn_req is None:
+            return False
+
+        # https://stackoverflow.com/questions/2352524/why-does-a-syn-or-fin-bit-in-a-tcp-segment-consume-a-byte-in-the-sequence-number
+        # Increase sent bytes, sent SYN flag = phantom byte
         self.seq = syn_req.ack
 
         # Check for response to request, process if available
@@ -45,6 +52,9 @@ class session:
         print("req_res: ", req_res)
 
         if req_res == "SA":
+            # Increase acknowledged bytes, recieved SYN flag = phantom byte
+            self.ack = syn_req.seq + 1
+
             # Acknowledge server's response
             send(self.ip / self.get_protocol("A", seq=self.seq, ack=self.ack))
             # NOTE: Handshake considered complete
@@ -54,18 +64,17 @@ class session:
                 # Check for half-open connection, reset if needed
                 rst_req = self.get_protocol("FA")
                 send(self.ip / rst_req)
-            else:
-                # No response/flags, port is closed?
-                print("syn NOT ack!")
+            # else: No response/flags, port is closed?
 
         return False
 
     # Apparently there's a handshake to close too..
     def close(self):
-        print("closing...")
         # Send request to Finish connection, wait for reply
         protocol = self.get_protocol("FA", seq=self.seq, ack=self.ack)
         fin_req = sr1(self.ip / protocol, timeout=2, verbose=0)
+
+        # Increase sent bytes, sent FIN flag = phantom byte
         self.seq += 1
 
         # Check for response to request, process if available
@@ -73,27 +82,12 @@ class session:
         print("fin_res: ", req_res)
 
         if req_res == "FA":
-            # Sever has acknowledged we are finished
-            # (Let them know that we know that they know, seriously)
+            # Increase acknowledged bytes, recieved FIN flag = phantom byte
+            self.ack = fin_req.seq + 1
+
+            # Sever has acknowledged we are finished, acknowledge their reply
             send(self.ip / self.get_protocol("A", seq=self.seq, ack=self.ack))
             # NOTE: Disconnected, srcport # is now available for new connection on server
-            print("CLOSED!")
             return True
 
         return False
-
-
-""" # Inform server we're going to disconnect
-FIN = TCP(sport=SOURCE_PORT, dport=80, flags="R", seq=ACK.ack, ack=SYNACK.seq + 1)
-fin_req = sr1(ip / FIN, timeout=2, verbose=0)
-
-print("FIN SEQ: ", FIN.seq)
-
-try:
-print("FLAGS: ", fin_req.getlayer(TCP).flags)
-if not (fin_req.getlayer(TCP).flags == "A"):
-    raise
-except AttributeError:
-print("FIN not ACK'd")
-sys.exit(1)
- """
