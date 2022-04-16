@@ -14,7 +14,7 @@ class session:
     def __init__(self, host, port):
         self.ip = IP(dst=host)
         self.port = port
-        self.sport = 48923
+        self.sport = 6543
         self.seq = 0  # Bytes sent
         self.ack = 0  # Bytes recieved
 
@@ -30,14 +30,13 @@ class session:
 
         return protocol
 
-    # 3-way handshake
     def connect(self):
         # Init connection with Synchronization request
         # TODO: Random starting seq
-        protocol = self.get_protocol("S", seq=1000)  # SEQ = 0
+        protocol = self.get_protocol("S", seq=1000)
         print("syn...")
 
-        # NOTE: (SR = Send & Receive -> first answer )
+        # NOTE: (SR = Send & Receive -> first answer)
         syn_req = sr1(self.ip / protocol, timeout=2, verbose=0)
 
         if syn_req is None:
@@ -68,7 +67,6 @@ class session:
 
         return False
 
-    # Apparently there's a handshake to close too..
     def close(self):
         # Send request to Finish connection, wait for reply
         protocol = self.get_protocol("FA", seq=self.seq, ack=self.ack)
@@ -91,3 +89,51 @@ class session:
             return True
 
         return False
+
+    def send(self, payload):
+        # Init protocol, build packet
+        protocol = self.get_protocol("PA", seq=self.seq, ack=self.ack)
+        packet = self.ip / protocol / payload
+
+        # Send packet, wait for reply
+        psh_res = sr1(packet, timeout=2, verbose=0)
+
+        # Check for response to request, process if available
+        req_res = get_flag(psh_res)
+        print("psh_res: ", req_res)
+
+        if req_res == "A":
+            # Server acknowledged byte recieved, adjust bytes sent
+            self.seq = psh_res.ack
+            return True
+
+        return False
+
+    def receive(self, to):
+        # Query (sniff) for packets
+        print("querying...")
+
+        query = sniff(
+            count=1,
+            timeout=to,
+            lfilter=lambda p: p.haslayer(IP)
+            and p.haslayer(TCP)
+            and p[TCP].payload is not None,
+        )
+
+        print("query completedf...")
+
+        # Return info
+        packet = query[0]
+
+        if packet is None:
+            return (None, None)
+        else:
+            # Increase # of bytes received
+            self.ack = packet[TCP].seq + len(packet[Raw])
+
+            # Acknowledge server we received data
+            send(self.ip / self.get_protocol("A", seq=self.seq, ack=self.ack))
+
+            # Return tuple  = flag, payload as string
+            return (packet[TCP].flags, bytes(packet[TCP].payload).decode('UTF8','replace'))
