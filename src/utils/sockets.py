@@ -165,7 +165,9 @@ class get(object):
             size = sys.getsizeof(data)
 
             # Truncate data for logging
+            data = bytes(data).decode("UTF8", "replace")
             log = (data[:75] + "..") if len(data) > 75 else data
+            
             if not self.silent:
                 print(f"{address} | @RECEIVED ~ {size} bytes | {log}")
         except Exception as e:

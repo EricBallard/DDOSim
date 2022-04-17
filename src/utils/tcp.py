@@ -14,15 +14,17 @@ class session:
     def __init__(self, host, port):
         self.ip = IP(dst=host)
         self.port = port
-        self.sport = 6543
+        self.sport = 3293
         self.seq = 0  # Bytes sent
         self.ack = 0  # Bytes recieved
 
     # Returns Layer 4 (Transportation) Configured for TCP with parameters
     # https://packetlife.net/blog/2010/jun/7/understanding-tcp-sequence-acknowledgment-numbers/
     def get_protocol(self, flag, seq=None, ack=None):
-        protocol = TCP(sport=self.sport, dport=self.port, flags=flag)
+        protocol = TCP(dport=self.port, flags=flag)
 
+        if self.sport != 0:
+            protocol.sport = self.sport
         if seq is not None:
             protocol.seq = seq
         if ack is not None:
@@ -34,7 +36,8 @@ class session:
         # Init connection with Synchronization request
         # TODO: Random starting seq
         protocol = self.get_protocol("S", seq=1000)
-        print("syn...")
+        self.sport = protocol.sport
+        print("syn...", self.sport)
 
         # NOTE: (SR = Send & Receive -> first answer)
         syn_req = sr1(self.ip / protocol, timeout=2, verbose=0)
@@ -109,7 +112,7 @@ class session:
 
         return False
 
-    def receive(self, to):
+    def receive(self, to, reset=False):
         # Query (sniff) for packets
         print("querying...")
 
@@ -121,7 +124,7 @@ class session:
             and p[TCP].payload is not None,
         )
 
-        print("query completedf...")
+        print("query completed...")
 
         # Return info
         packet = query[0]
@@ -129,11 +132,23 @@ class session:
         if packet is None:
             return (None, None)
         else:
-            # Increase # of bytes received
-            self.ack = packet[TCP].seq + len(packet[Raw])
+            print("Current Seq: ", self.seq, " , Current Ack: ", self.ack)
 
-            # Acknowledge server we received data
-            send(self.ip / self.get_protocol("A", seq=self.seq, ack=self.ack))
+            # Increase # of bytes received
+            size = len(packet[TCP].payload)
+            self.ack = packet[TCP].seq + size
+            print("Received bytes: ", size, " , Rec Seq: ", packet[TCP].seq)
+
+            if reset:
+                # Acknowledge and reset/drop connection
+                # NOTE: Prevents more data from coming in
+                send(self.ip / self.get_protocol("RA", seq=self.seq, ack=self.ack))
+            else:
+                # Acknowledge server we received data
+                send(self.ip / self.get_protocol("A", seq=self.seq, ack=self.ack))
 
             # Return tuple  = flag, payload as string
-            return (packet[TCP].flags, bytes(packet[TCP].payload).decode('UTF8','replace'))
+            return (
+                packet[TCP].flags,
+                bytes(packet[TCP].payload).decode("UTF8", "replace"),
+            )
