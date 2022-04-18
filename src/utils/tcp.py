@@ -32,7 +32,7 @@ class session:
 
         return protocol
 
-    def connect(self):
+    def connect(self, half_open=False):
         # Init connection with Synchronization request
         # TODO: Random starting seq
         protocol = self.get_protocol("S", seq=1000)
@@ -57,18 +57,26 @@ class session:
             # Increase acknowledged bytes, recieved SYN flag = phantom byte
             self.ack = syn_req.seq + 1
 
+            # Optionally leave the socket half open
+            if half_open:
+                return True
+
             # Acknowledge server's response
             send(self.ip / self.get_protocol("A", seq=self.seq, ack=self.ack))
             # NOTE: Handshake considered complete
             return True
         else:
             if req_res == "A":  # TODO
-                # Check for half-open connection, reset if needed
-                rst_req = self.get_protocol("FA")
-                send(self.ip / rst_req)
+                # Detected half-open connection, reset
+                self.reset()
+
             # else: No response/flags, port is closed?
 
         return False
+
+    def reset(self):
+        # Send request connection request
+        send(self.ip / self.get_protocol("RA", seq=self.seq, ack=self.ack))
 
     def close(self):
         # Send request to Finish connection, wait for reply
@@ -112,13 +120,13 @@ class session:
 
         return False
 
-    def receive(self, to, reset=False):
+    def receive(self, timeout, reset=False):
         # Query (sniff) for packets
         print("querying...")
 
         query = sniff(
             count=1,
-            timeout=to,
+            timeout=timeout,
             lfilter=lambda p: p.haslayer(IP)
             and p.haslayer(TCP)
             and p[TCP].payload is not None,
@@ -139,13 +147,12 @@ class session:
             self.ack = packet[TCP].seq + size
             print("Received bytes: ", size, " , Rec Seq: ", packet[TCP].seq)
 
-            if reset:
-                # Acknowledge and reset/drop connection
-                # NOTE: Prevents more data from coming in
-                send(self.ip / self.get_protocol("RA", seq=self.seq, ack=self.ack))
-            else:
-                # Acknowledge server we received data
-                send(self.ip / self.get_protocol("A", seq=self.seq, ack=self.ack))
+            # Acknowledge  server we received data, optionally and reset/drop connection
+            # NOTE: Prevents excess unwanted data from coming in
+            send(
+                self.ip
+                / self.get_protocol("RA" if reset else "A", seq=self.seq, ack=self.ack)
+            )
 
             # Return tuple  = flag, payload as string
             return (
